@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>VocaBot ITCJ</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:        #1A0A00;
+  --surface:   #2A1200;
+  --bot:       #3D1A00;
+  --user:      #8B2500;
+  --accent:    #FF6B1A;
+  --accent2:   #FFB380;
+  --accent-lt: #FF8C42;
+  --txt:       #FFF0E6;
+  --txt2:      #CC8866;
+  --opt-bg:    #2A1200;
+  --opt-bdr:   #5C2A00;
+  --red:       #CC0000;
+  --red-dark:  #8B0000;
+  --radius:    16px;
+}
+html,body { height:100%; font-family:'Inter',sans-serif; background:var(--bg); color:var(--txt); overflow:hidden; }
+
+.screen { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; transition:opacity .35s ease,transform .35s ease; }
+.screen.hidden { opacity:0; pointer-events:none; transform:scale(.97); }
+
+#welcome { background:linear-gradient(160deg,#CC0000 0%,#8B0000 55%,#3a0000 100%); padding:24px; }
+.welcome-card { display:flex; flex-direction:column; align-items:center; gap:16px; max-width:300px; width:100%; }
+.welcome-mascot { filter:drop-shadow(0 8px 24px rgba(0,0,0,.35)); }
+.welcome-title { font-size:22px; font-weight:700; color:white; text-align:center; line-height:1.3; }
+.welcome-sub { font-size:14px; color:rgba(255,255,255,.78); text-align:center; line-height:1.65; max-width:240px; }
+.welcome-btn { background:white; color:var(--red); border:none; padding:14px 36px; border-radius:14px; font-size:15px; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; box-shadow:0 4px 14px rgba(0,0,0,.25); transition:transform .12s,opacity .12s; margin-top:4px; }
+.welcome-btn:hover { opacity:.9; transform:translateY(-1px); }
+.welcome-note { font-size:11px; color:rgba(255,255,255,.5); text-align:center; }
+
+#chatscreen { background:var(--bg); justify-content:flex-start; }
+.layout { display:flex; flex-direction:column; height:100%; width:100%; max-width:480px; margin:0 auto; }
+
+.header { flex-shrink:0; background:var(--surface); padding:10px 14px; display:flex; align-items:center; gap:10px; border-bottom:1px solid #5C2A00; }
+.hav { width:36px; height:36px; border-radius:50%; background:var(--red); display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0; }
+.header-name { font-size:14px; font-weight:600; color:var(--txt); }
+.header-sub  { font-size:11px; color:var(--accent); margin-top:1px; }
+
+.progress-bar  { flex-shrink:0; height:3px; background:#5C2A00; }
+.progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),#FFD700); transition:width .5s ease; width:0%; }
+
+.chat-wrap { flex:1; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; }
+.chat { padding:14px 12px 10px; display:flex; flex-direction:column; gap:10px; min-height:100%; }
+
+.bubble { max-width:84%; padding:11px 14px; border-radius:var(--radius); font-size:14px; line-height:1.55; animation:fadeUp .25s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+.bubble.bot  { background:var(--bot); color:var(--txt); border-bottom-left-radius:4px; align-self:flex-start; border:1px solid #5C2A00; }
+.bubble.user { background:var(--user); color:var(--accent2); border-bottom-right-radius:4px; align-self:flex-end; font-weight:500; }
+
+.typing { display:flex; gap:5px; align-items:center; padding:13px 14px; background:var(--bot); border-radius:var(--radius); border-bottom-left-radius:4px; align-self:flex-start; width:fit-content; border:1px solid #5C2A00; }
+.typing span { width:7px; height:7px; background:var(--accent); border-radius:50%; animation:blink 1.2s infinite; }
+.typing span:nth-child(2){animation-delay:.2s}
+.typing span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+
+.options-panel { flex-shrink:0; background:var(--bg); border-top:1px solid #5C2A00; padding:10px 12px 18px; display:flex; flex-direction:column; gap:7px; max-height:58vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+.opt { background:var(--opt-bg); border:1px solid var(--opt-bdr); color:var(--txt); padding:11px 14px; border-radius:12px; font-size:13.5px; line-height:1.4; cursor:pointer; transition:background .15s,border-color .15s,transform .1s; text-align:left; font-family:'Inter',sans-serif; width:100%; }
+.opt:hover { background:rgba(255,107,26,.15); border-color:var(--accent); }
+.opt:active { transform:translateY(1px); }
+
+.input-box { width:100%; padding:12px; border-radius:12px; border:1px solid var(--opt-bdr); background:var(--surface); color:var(--txt); font-family:'Inter',sans-serif; font-size:14px; outline:none; transition:border-color .2s; }
+.input-box:focus { border-color:var(--accent); }
+
+.rank-info { font-size:11px; color:var(--txt2); font-style:italic; padding:2px; }
+.opt.rank-opt { display:flex; align-items:center; gap:10px; }
+.rank-badge { min-width:24px; height:24px; border-radius:50%; border:1.5px solid var(--opt-bdr); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--txt2); flex-shrink:0; transition:all .2s; }
+.opt.ranked .rank-badge { background:rgba(255,107,26,.25); border-color:var(--accent); color:var(--accent); }
+.opt.ranked { border-color:rgba(255,107,26,.4); opacity:.75; }
+.confirm-btn { background:var(--accent); color:white; border:none; padding:12px; border-radius:12px; font-size:14px; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif; transition:opacity .15s; }
+.confirm-btn:disabled { opacity:.3; cursor:not-allowed; }
+
+.result-card { background:var(--surface); border:1px solid var(--accent); border-radius:20px; padding:20px; margin-top:4px; animation:fadeUp .4s ease; align-self:stretch; }
+.result-label { font-size:11px; color:var(--accent); font-weight:600; letter-spacing:.07em; margin-bottom:4px; }
+.result-title { font-size:19px; font-weight:700; margin-bottom:3px; color:var(--txt); }
+.result-sub   { font-size:12px; color:var(--txt2); margin-bottom:12px; }
+.dim-bar { margin-bottom:14px; }
+.dim-title { font-size:11.5px; font-weight:600; color:var(--txt2); margin-bottom:8px; }
+.dim-item { margin-bottom:6px; }
+.dim-label { display:flex; justify-content:space-between; font-size:12px; color:var(--txt); margin-bottom:3px; }
+.dim-track { height:6px; background:#5C2A00; border-radius:3px; overflow:hidden; }
+.dim-fill  { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--accent),#FFD700); transition:width .8s ease; }
+.careers-section { margin-bottom:12px; }
+.careers-title { font-size:11.5px; font-weight:600; color:var(--txt2); margin-bottom:8px; }
+.career-item { display:flex; align-items:center; gap:8px; padding:8px 10px; background:rgba(255,107,26,.08); border-radius:10px; margin-bottom:5px; border:1px solid rgba(255,107,26,.2); }
+.career-emoji { font-size:16px; flex-shrink:0; }
+.career-name { font-size:13px; color:var(--txt); font-weight:500; }
+.career-match { font-size:11px; color:var(--accent); margin-left:auto; font-weight:600; }
+
+.link-carreras-btn { display:block; text-align:center; background:rgba(255,107,26,.15); border:1px solid var(--accent); color:var(--accent-lt); text-decoration:none; padding:10px; border-radius:10px; font-size:12.5px; font-weight:600; margin-top:10px; transition:background .2s; }
+.link-carreras-btn:hover { background:rgba(255,107,26,.25); }
+
+.sports-section { margin-bottom:12px; padding:12px; background:rgba(255,107,26,.08); border-radius:12px; border:1px solid rgba(255,107,26,.2); margin-top:12px; }
+.sports-title { font-size:11.5px; font-weight:600; color:var(--accent); margin-bottom:6px; }
+.sports-list { font-size:12.5px; color:var(--txt); line-height:1.7; }
+.disclaimer { font-size:11px; color:var(--txt2); line-height:1.5; margin-top:10px; padding:9px 11px; background:rgba(255,255,255,.03); border-radius:10px; }
+.restart-btn { margin-top:12px; width:100%; background:transparent; border:1px solid var(--opt-bdr); color:var(--txt2); padding:11px; border-radius:12px; font-size:13px; cursor:pointer; font-family:'Inter',sans-serif; transition:border-color .2s,color .2s; }
+.restart-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+@media(prefers-reduced-motion:no-preference){
+  #wg { transform-origin:50% 85%; animation:wave 1.3s ease-in-out infinite; }
+  @keyframes wave{0%{transform:rotate(0deg)}20%{transform:rotate(-30deg)}40%{transform:rotate(10deg)}60%{transform:rotate(-24deg)}80%{transform:rotate(6deg)}100%{transform:rotate(0deg)}}
+  #ebl,#ebr { animation:eblink 4s ease-in-out infinite; transform-box:fill-box; transform-origin:50% 50%; }
+  #ebr { animation-delay:.07s; }
+  @keyframes eblink{0%,88%,100%{transform:scaleY(1)}93%{transform:scaleY(0.07)}}
+}
+</style>
+</head>
+<body>
+
+<div class="screen" id="welcome">
+  <div class="welcome-card">
+    <svg class="welcome-mascot" viewBox="0 0 180 220" width="180" height="220" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="84" cy="216" rx="44" ry="5.5" fill="#000" opacity="0.2"/>
+      <ellipse cx="58" cy="38" rx="12" ry="31" fill="#C0C0C0" stroke="#A8A8A8" stroke-width="1"/>
+      <ellipse cx="58" cy="38" rx="6.5" ry="23" fill="#D9A8B8"/>
+      <ellipse cx="106" cy="36" rx="12" ry="31" fill="#C0C0C0" stroke="#A8A8A8" stroke-width="1" transform="rotate(8 106 36)"/>
+      <ellipse cx="106" cy="36" rx="6.5" ry="23" fill="#D9A8B8" transform="rotate(8 106 36)"/>
+      <path d="M40 130 Q40 114 82 114 Q124 114 124 130 L120 200 L44 200 Z" fill="#AA0000"/>
+      <path d="M40 130 Q40 114 56 114 L52 200 L44 200 Z" fill="#880000" opacity="0.5"/>
+      <path d="M124 130 Q124 114 108 114 L112 200 L120 200 Z" fill="#880000" opacity="0.5"/>
+      <rect x="70" y="134" width="24" height="6" rx="3" fill="white" opacity="0.95"/>
+      <rect x="79" y="140" width="8" height="20" rx="3" fill="white" opacity="0.95"/>
+      <rect x="70" y="106" width="26" height="12" rx="6" fill="#C8C8C8"/>
+      <path d="M42 126 Q30 134 28 154 Q28 168 36 172 Q46 174 50 162 Q54 148 50 132 Q48 124 42 126Z" fill="#C8C8C8" stroke="#B2B2B2" stroke-width="1.2"/>
+      <circle cx="36" cy="174" r="10" fill="#CCCCCC" stroke="#B2B2B2" stroke-width="1"/>
+      <g id="wg">
+        <path d="M122 128 Q138 118 144 100 Q148 86 142 74" fill="none" stroke="#C0C0C0" stroke-width="18" stroke-linecap="round"/>
+        <path d="M122 128 Q138 118 144 100 Q148 86 142 74" fill="none" stroke="#CECECE" stroke-width="13" stroke-linecap="round"/>
+        <circle cx="141" cy="71" r="13" fill="#CCCCCC" stroke="#B2B2B2" stroke-width="1.2"/>
+        <line x1="135" y1="62" x2="133" y2="57" stroke="#B2B2B2" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="141" y1="59" x2="140" y2="54" stroke="#B2B2B2" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="147" y1="62" x2="148" y2="57" stroke="#B2B2B2" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="151" y1="67" x2="154" y2="63" stroke="#B2B2B2" stroke-width="1.5" stroke-linecap="round"/>
+      </g>
+      <circle cx="124" cy="182" r="13" fill="white" opacity="0.95"/>
+      <ellipse cx="82" cy="84" rx="38" ry="40" fill="#D4D4D4" stroke="#C0C0C0" stroke-width="0.5"/>
+      <ellipse cx="62" cy="92" rx="12" ry="8.5" fill="#DD9999" opacity="0.25"/>
+      <ellipse cx="102" cy="92" rx="12" ry="8.5" fill="#DD9999" opacity="0.25"/>
+      <g id="ebl">
+        <ellipse cx="66" cy="80" rx="9" ry="10" fill="white"/>
+        <ellipse cx="68" cy="81.5" rx="5.5" ry="6.5" fill="#111"/>
+        <circle cx="71" cy="78.5" r="2" fill="white"/>
+      </g>
+      <g id="ebr">
+        <ellipse cx="98" cy="80" rx="9" ry="10" fill="white"/>
+        <ellipse cx="96" cy="81.5" rx="5.5" ry="6.5" fill="#111"/>
+        <circle cx="99" cy="78.5" r="2" fill="white"/>
+      </g>
+      <path d="M57 67 Q66 62 73 67" fill="none" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M91 67 Q98 62 107 67" fill="none" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
+      <ellipse cx="82" cy="95" rx="6.5" ry="4.5" fill="#E8A0B0"/>
+      <line x1="82" y1="99" x2="82" y2="103" stroke="#C08090" stroke-width="1.2" stroke-linecap="round"/>
+      <path d="M69 104 Q82 116 95 104" fill="none" stroke="#888" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="42" y1="91" x2="68" y2="93" stroke="white" stroke-width="1.4" stroke-linecap="round" opacity="0.85"/>
+      <line x1="42" y1="95" x2="68" y2="95" stroke="white" stroke-width="1.4" stroke-linecap="round" opacity="0.85"/>
+      <line x1="44" y1="99" x2="68" y2="97" stroke="white" stroke-width="1.4" stroke-linecap="round" opacity="0.85"/>
+      <line x1="96" y1="93" x2="122" y2="91" stroke="white" stroke-width="1.4" stroke-linecap="round" opacity="0.85"/>
+      <line x1="96" y1="95" x2="122" y2="95" stroke="white" stroke-width="1.4" stroke-linecap="round" opacity="0.85"/>
+      <line x1="96" y1="97" x2="120" y2="99" stroke="white" stroke-width="1.4" stroke-linecap="round" opacity="0.85"/>
+    </svg>
+    <div class="welcome-title">¡Hola! Soy VocaBot</div>
+    <div class="welcome-sub">Tu guía de orientación vocacional. Vamos a explorar qué área encaja mejor contigo.</div>
+    <button class="welcome-btn" id="startBtn">Comenzar 🚀</button>
+    <div class="welcome-note">10 preguntas · menos de 3 minutos</div>
+  </div>
+</div>
+
+<div class="screen hidden" id="chatscreen">
+  <div class="layout">
+    <div class="header">
+      <div class="hav">
+        <svg viewBox="0 0 48 48" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24" cy="24" r="24" fill="#CC0000"/>
+          <ellipse cx="17" cy="11" rx="4" ry="9" fill="#B0B0B0"/><ellipse cx="17" cy="11" rx="2.2" ry="6.5" fill="#D8B4BE"/>
+          <ellipse cx="29" cy="10" rx="4" ry="9" fill="#B0B0B0" transform="rotate(8 29 10)"/><ellipse cx="29" cy="10" rx="2.2" ry="6.5" fill="#D8B4BE" transform="rotate(8 29 10)"/>
+          <ellipse cx="23" cy="25" rx="11" ry="12" fill="#D0D0D0"/>
+          <ellipse cx="19.5" cy="23" rx="2.2" ry="2.5" fill="white"/><ellipse cx="26.5" cy="23" rx="2.2" ry="2.5" fill="white"/>
+          <circle cx="20" cy="23.5" r="1.3" fill="#222"/><circle cx="27" cy="23.5" r="1.3" fill="#222"/>
+          <ellipse cx="23" cy="27.5" rx="1.8" ry="1.2" fill="#E8A0A8"/>
+          <path d="M20 29.5 Q23 32 26 29.5" fill="none" stroke="#888" stroke-width="0.8" stroke-linecap="round"/>
+          <path d="M14 36 Q14 32 23 32 Q32 32 32 36 L34 48 L12 48 Z" fill="#CC0000"/>
+          <rect x="20.5" y="34" width="5" height="1.5" rx="0.5" fill="white"/>
+          <rect x="22.5" y="35.5" width="1.5" height="4" rx="0.5" fill="white"/>
+        </svg>
+      </div>
+      <div><div class="header-name">VocaBot</div><div class="header-sub">Diagnóstico de Nuevo Ingreso</div></div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+    <div class="chat-wrap" id="chat-wrap"><div class="chat" id="chat"></div></div>
+    <div class="options-panel" id="options-panel"></div>
+  </div>
+</div>
+
+<script>
+const SHEETS_URL = "https://script.google.com/macros/s/AKfycbzcFruYAgJQhWRwXPIZkJ7q6IFOr_sJAtMKWg50y-3NVc4tA2Fs7mpa8jhHIw-NTtrk8w/exec";
+
+const DIMS = {
+  TC:{ label:"Técnico-constructiva", emoji:"🔧", desc:"Disfrutas construir, reparar y trabajar con sistemas físicos." },
+  DL:{ label:"Digital-lógica",       emoji:"💻", desc:"Te atrae la tecnología, el código y los sistemas de información." },
+  EP:{ label:"Electrónica-precisa",  emoji:"⚡", desc:"Te interesa el detalle técnico, los circuitos y la precisión." },
+  OO:{ label:"Organizacional",       emoji:"📦", desc:"Tienes habilidad natural para coordinar procesos y recursos." },
+  AA:{ label:"Analítico-admin.",     emoji:"📊", desc:"Disfrutas el análisis de datos, finanzas y decisiones basadas en números." },
+  ES:{ label:"Estratégico-empresarial",emoji:"🎯",desc:"Te llama el emprendimiento, los negocios y la toma de decisiones." },
+  RI:{ label:"Investigativo-esp.",   emoji:"🔬", desc:"Te motiva entender en profundidad, investigar y especializarte." },
+};
+
+const CARRERAS = [
+  { name:"Ingeniería en Mecatrónica",              emoji:"⚙",  dims:{TC:4,EP:3,DL:2,RI:1} },
+  { name:"Ingeniería Mecánica",                    emoji:"🔩",  dims:{TC:5,EP:2,OO:1} },
+  { name:"Ingeniería Electromecánica",             emoji:"🔌",  dims:{TC:4,EP:4,OO:1} },
+  { name:"Ingeniería Electrónica",                 emoji:"⚡",  dims:{EP:5,TC:2,RI:2,DL:1} },
+  { name:"Ingeniería Eléctrica",                   emoji:"💡",  dims:{EP:4,TC:3,RI:2} },
+  { name:"Ingeniería en Sistemas Computacionales",emoji:"💻",  dims:{DL:5,RI:3,TC:1} },
+  { name:"Ing. en Tecnologías de la Información", emoji:"🌐",  dims:{DL:5,RI:2,OO:2} },
+  { name:"Ingeniería en Ciberseguridad",          emoji:"🔒",  dims:{DL:4,RI:4,EP:2} },
+  { name:"Ingeniería en Semiconductores",          emoji:"🔬",  dims:{RI:5,EP:4,DL:2} },
+  { name:"Ingeniería Industrial",                  emoji:"🏭",  dims:{OO:4,TC:3,AA:2,ES:1} },
+  { name:"Ingeniería en Logística",                emoji:"📦",  dims:{OO:5,ES:3,AA:2} },
+  { name:"Ingeniería en Gestión Empresarial",      emoji:"🏢",  dims:{ES:4,OO:3,AA:3} },
+  { name:"Licenciatura en Administración",         emoji:"📊",  dims:{AA:5,ES:3,OO:2} },
+  { name:"Contador Público",                       emoji:"🧾",  dims:{AA:5,ES:2,RI:2} },
+];
+
+const SPORTS_MSG = `¿Sabías que el ITCJ tiene actividades deportivas y extracurriculares? Entre ellas: fútbol, basquetbol, voleibol, atletismo, ajedrez, artes marciales y más. Formar parte de un equipo también suma a tus actividades complementarias obligatorias.`;
+
+const QUESTIONS = [
+  {
+    q:"En tu tiempo libre, sin que nadie te lo pida, ¿qué terminas haciendo casi siempre?",
+    type:"single",
+    opts:[
+      { text:"Escuchar música, bailar, dibujar o hacer algo artístico",           scores:{AA:2,ES:1} },
+      { text:"Jugar videojuegos o explorar apps y tecnología nueva",              scores:{DL:3,RI:1} },
+      { text:"Entrenar, jugar algún deporte o hacer algo físico activo",          scores:{TC:2,OO:1} },
+      { text:"Hablar con alguien, escucharlo o ayudarlo con algo personal",       scores:{ES:2,AA:1} },
+      { text:"Desarmar, arreglar o modificar algo que tengo en casa",             scores:{TC:3,EP:2} },
+      { text:"Organizar mis cosas, planear algo o hacer listas",                  scores:{OO:3,AA:1} },
+    ]
+  },
+  {
+    q:"Cuando había una feria o convocatoria en la prepa y podías participar en lo que quisieras, ¿qué escogías o qué te llamaba más la atención?",
+    type:"single",
+    opts:[
+      { text:"Algo artístico: manualidades, diseño, fotografía o decoración",     scores:{AA:2,ES:1} },
+      { text:"Algo de tecnología, robótica o computación",                        scores:{DL:3,EP:2} },
+      { text:"Algo de emprendimiento, negocios o administración",                 scores:{ES:3,AA:2} },
+      { text:"Algo de ciencias: experimentos, química, física",                   scores:{RI:3,EP:2} },
+      { text:"Algo deportivo o de expresión física",                              scores:{TC:2,OO:1} },
+      { text:"Algo social: hablar de un tema, debatir o concientizar",            scores:{ES:2,AA:1} },
+    ]
+  },
+  {
+    q:"Cuando alguien de tu familia o amigos tiene un problema, ¿qué haces casi sin pensarlo?",
+    type:"single",
+    opts:[
+      { text:"Escucho y trato de entender cómo se siente antes de opinar",       scores:{ES:2,AA:1} },
+      { text:"Le doy ideas concretas de cómo resolverlo paso a paso",             scores:{OO:2,DL:2} },
+      { text:"Busco información o a alguien que pueda ayudarlo mejor",            scores:{RI:3,DL:1} },
+      { text:"Lo ayudo a organizarse y ver qué recursos tiene disponibles",       scores:{OO:3,ES:1} },
+      { text:"Intento arreglar lo que está fallando de forma práctica",           scores:{TC:3,EP:1} },
+    ]
+  },
+  {
+    q:"¿Cuándo sientes que el tiempo se fue volando sin darte cuenta?",
+    type:"single",
+    opts:[
+      { text:"Cuando estoy creando algo: armando, construyendo, modificando",     scores:{TC:3,EP:2} },
+      { text:"Cuando estoy jugando o haciendo algo físico y activo",              scores:{TC:2,OO:1} },
+      { text:"Cuando estoy resolviendo algo complicado en una computadora",       scores:{DL:3,RI:2} },
+      { text:"Cuando estoy organizando o planeando algo con mucho detalle",       scores:{OO:3,AA:2} },
+      { text:"Cuando estoy aprendiendo algo muy técnico o especializado",         scores:{RI:3,EP:2} },
+      { text:"Cuando estoy hablando, negociando o convenciendo a alguien",        scores:{ES:3,AA:1} },
+    ]
+  },
+  {
+    q:"Imagina que estás en un proyecto y algo deja de funcionar. ¿Cuál es tu reacción más honesta?",
+    type:"single",
+    opts:[
+      { text:"Me pongo a entender exactamente por qué falló antes de hacer algo", scores:{EP:3,RI:2} },
+      { text:"Busco otra ruta para llegar al mismo resultado sin perder tiempo",  scores:{DL:2,OO:2} },
+      { text:"Reorganizo al equipo para que lo que sí funciona siga avanzando",  scores:{OO:3,ES:2} },
+      { text:"Reviso los detalles uno por uno hasta encontrar el error",          scores:{TC:2,EP:2,RI:1} },
+      { text:"Analizo si el enfoque completo necesita cambiar desde la raíz",     scores:{ES:2,AA:2} },
+    ]
+  },
+  {
+    q:"Si tuvieras que presentar algo ante tu salón y pudieras elegir el tema, ¿qué presentarías?",
+    type:"single",
+    opts:[
+      { text:"Cómo funciona una tecnología que me generó curiosidad",             scores:{DL:3,RI:2} },
+      { text:"Un plan de negocio o proyecto de emprendimiento",                   scores:{ES:3,AA:2} },
+      { text:"Cómo arreglé o construí algo por mi cuenta",                       scores:{TC:3,EP:1} },
+      { text:"Un análisis de números o datos sobre algo real de la ciudad",       scores:{AA:3,RI:2} },
+      { text:"Una propuesta para mejorar algo en la escuela o comunidad",         scores:{OO:2,ES:2} },
+      { text:"Algo sobre seguridad digital, privacidad o tecnología avanzada",    scores:{RI:3,DL:2} },
+    ]
+  },
+  {
+    q:"¿Qué tipo de videos, podcasts o contenido consumes sin que nadie te lo pida?",
+    type:"single",
+    opts:[
+      { text:"Tecnología, gadgets, cómo funcionan las cosas por dentro",          scores:{DL:3,EP:2} },
+      { text:"Deportes, entrenamiento físico o bienestar",                        scores:{TC:2,OO:1} },
+      { text:"Negocios, emprendimiento o finanzas personales",                    scores:{ES:3,AA:2} },
+      { text:"Ciencia, experimentos, descubrimientos o ingeniería",               scores:{RI:3,EP:2} },
+      { text:"Entretenimiento, música, arte o cultura",                           scores:{AA:2,ES:1} },
+      { text:"Seguridad digital, hackers, privacidad o redes",                    scores:{RI:3,DL:2} },
+    ]
+  },
+  {
+    q:"Si pudieras cambiar algo concreto de tu colonia, escuela o ciudad, ¿qué harías?",
+    type:"single",
+    opts:[
+      { text:"Mejoraría la infraestructura: calles, edificios o instalaciones",   scores:{TC:3,EP:1} },
+      { text:"Crearía un sistema digital para resolver un problema cotidiano",     scores:{DL:3,RI:2} },
+      { text:"Organizaría mejor cómo funcionan los procesos o servicios",         scores:{OO:3,ES:1} },
+      { text:"Abriría un negocio que resuelva una necesidad real del lugar",      scores:{ES:3,AA:2} },
+      { text:"Mejoraría la seguridad digital o física del lugar",                 scores:{RI:3,DL:2} },
+      { text:"Llevaría mejor el control financiero y los recursos del lugar",     scores:{AA:3,OO:2} },
+    ]
+  },
+  {
+    q:"Si solo pudieras hacer una de estas cosas durante una semana libre, ordénalas de la que más disfrutarías a la que menos:",
+    type:"rank",
+    rankScores:[4,3,2,1,0],
+    opts:[
+      { text:"Armar o reparar algo que dejó de funcionar",                        keys:{TC:true,EP:true} },
+      { text:"Organizar un evento o viaje para un grupo de personas",             keys:{OO:true,ES:true} },
+      { text:"Aprender a programar algo o explorar ciberseguridad",               keys:{DL:true,RI:true} },
+      { text:"Llevar las cuentas y finanzas de un negocio pequeño",               keys:{AA:true,ES:true} },
+      { text:"Analizar cómo mejorar un proceso que es ineficiente",               keys:{OO:true,TC:true} },
+    ]
+  },
+  {
+    q:"En un equipo, ordena estos roles del que más te sale natural al que menos:",
+    type:"rank",
+    rankScores:[4,3,2,1,0],
+    opts:[
+      { text:"El que entiende la parte técnica y hace que todo funcione",         keys:{TC:true,EP:true} },
+      { text:"El que coordina quién hace qué y para cuándo",                      keys:{OO:true} },
+      { text:"El que encuentra la solución más inteligente al problema",          keys:{DL:true,RI:true} },
+      { text:"El que convence, negocia y toma las decisiones importantes",        keys:{ES:true,AA:true} },
+      { text:"El que revisa los números y cuida que todo cuadre",                 keys:{AA:true} },
+    ]
+  },
+];
+
+let scores   = {TC:0,DL:0,EP:0,OO:0,AA:0,ES:0,RI:0};
+let answers  = {};
+let eval1 = "";
+let eval2 = "";
+let eval3 = "";
+let eval4 = "";
+let contactoUsuario = "";
+let carreraActualITCJ = "";
+let startTime;
+let currentQ = -1;
+
+const chatEl   = document.getElementById('chat');
+const chatWrap = document.getElementById('chat-wrap');
+const optPanel = document.getElementById('options-panel');
+const progEl   = document.getElementById('progress');
+
+document.getElementById('startBtn').addEventListener('click',()=>{
+  document.getElementById('welcome').classList.add('hidden');
+  document.getElementById('chatscreen').classList.remove('hidden');
+  startTime = new Date();
+  setTimeout(askCarreraActual, 300);
+});
+
+function scrollBottom(){ setTimeout(()=>{ chatWrap.scrollTop=chatWrap.scrollHeight; },80); }
+function clearOpts(){ optPanel.innerHTML=''; }
+
+function addBubble(text,type){
+  return new Promise(resolve=>{
+    const b=document.createElement('div');
+    b.className=`bubble ${type}`; b.textContent=text;
+    chatEl.appendChild(b); scrollBottom(); setTimeout(resolve,60);
+  });
+}
+
+function showTyping(dur=700){
+  return new Promise(resolve=>{
+    const t=document.createElement('div');
+    t.className='typing'; t.id='typ';
+    t.innerHTML='<span></span><span></span><span></span>';
+    chatEl.appendChild(t); scrollBottom();
+    setTimeout(()=>{ const e=document.getElementById('typ'); if(e)e.remove(); resolve(); },dur);
+  });
+}
+
+function updateProgress(){
+  const pct = Math.min(100, Math.round(((currentQ + 1) / QUESTIONS.length) * 100));
+  progEl.style.width=pct+'%';
+}
+
+async function askCarreraActual(){
+  await showTyping(600);
+  await addBubble("¡Hola! Estás utilizando la versión de diagnóstico para estudiantes de nuevo ingreso. Para comenzar, ¿qué carrera estás cursando actualmente en el ITCJ?", "bot");
+  
+  clearOpts();
+  const select = document.createElement('select');
+  select.className = 'input-box';
+  
+  const carrerasList = [
+    "Licenciatura en Administración",
+    "Contador Público",
+    "Ingeniería Electromecánica",
+    "Ingeniería Mecánica",
+    "Ingeniería en Sistemas Computacionales",
+    "Ingeniería Electrónica",
+    "Ingeniería en Tecnologías de la Información y Comunicaciones",
+    "Ingeniería en Gestión Empresarial",
+    "Ingeniería Eléctrica",
+    "Ingeniería Industrial",
+    "Ingeniería en Logística",
+    "Ingeniería en Mecatrónica",
+    "Ingeniería en Semiconductores",
+    "Ingeniería en Ciberseguridad"
+  ];
+  
+  const defaultOpt = document.createElement('option');
+  defaultOpt.value = "";
+  defaultOpt.textContent = "Selecciona tu carrera...";
+  defaultOpt.disabled = true;
+  defaultOpt.selected = true;
+  select.appendChild(defaultOpt);
+
+  carrerasList.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    select.appendChild(opt);
+  });
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.className = 'confirm-btn';
+  confirmBtn.textContent = 'Comenzar test 🚀';
+  confirmBtn.onclick = async () => {
+    if(!select.value) {
+      select.style.borderColor = '#FF5555';
+      return;
+    }
+    carreraActualITCJ = select.value;
+    clearOpts();
+    await addBubble(carreraActualITCJ, 'user');
+    startChat();
+  };
+
+  optPanel.appendChild(select);
+  optPanel.appendChild(confirmBtn);
+}
+
+async function startChat(){
+  await showTyping(600);
+  await addBubble("Recuerda: no hay respuestas correctas ni incorrectas. Solo sé honesto contigo mismo, no con quien quieres ser.", "bot");
+  
+  clearOpts();
+  const btn = document.createElement('button');
+  btn.className = 'opt';
+  btn.style.textAlign = 'center';
+  btn.style.fontWeight = '600';
+  btn.textContent = "Entendido, ¡vamos! 👊";
+  btn.addEventListener('click', async () => {
+    clearOpts();
+    await addBubble("Entendido, ¡vamos! 👊", "user");
+    setTimeout(nextQuestion, 300);
+  });
+  optPanel.appendChild(btn);
+}
+
+function showSingle(q,onDone){
+  clearOpts();
+  q.opts.forEach((opt)=>{
+    const btn=document.createElement('button');
+    btn.className='opt'; btn.textContent=opt.text;
+    btn.addEventListener('click',async()=>{
+      clearOpts();
+      answers[`P${currentQ+1}`]=opt.text;
+      await addBubble(opt.text,'user');
+      Object.entries(opt.scores).forEach(([k,v])=>scores[k]+=v);
+      onDone();
+    });
+    optPanel.appendChild(btn);
+  });
+}
+
+function showRank(q,onDone){
+  clearOpts();
+  const info=document.createElement('div');
+  info.className='rank-info';
+  info.textContent='Toca en orden: primero el que más te representa. Toca de nuevo para quitar.';
+  optPanel.appendChild(info);
+  let order=[];
+  const btns=q.opts.map((opt,i)=>{
+    const btn=document.createElement('button');
+    btn.className='opt rank-opt';
+    const badge=document.createElement('span'); badge.className='rank-badge'; badge.textContent='?';
+    const label=document.createElement('span'); label.style.flex='1'; label.textContent=opt.text;
+    btn.appendChild(badge); btn.appendChild(label);
+    btn.addEventListener('click',()=>{
+      const pos=order.indexOf(i);
+      if(pos===-1){
+        order.push(i); btn.classList.add('ranked'); badge.textContent=order.length;
+      } else {
+        order.splice(pos,1); btn.classList.remove('ranked'); badge.textContent='?';
+        order.forEach((idx,np)=>{ btns[idx].querySelector('.rank-badge').textContent=np+1; });
+      }
+      confirmBtn.disabled=(order.length<q.opts.length);
+    });
+    optPanel.appendChild(btn); return btn;
+  });
+  const confirmBtn=document.createElement('button');
+  confirmBtn.className='confirm-btn'; confirmBtn.textContent='Confirmar orden ✓'; confirmBtn.disabled=true;
+  confirmBtn.addEventListener('click',async()=>{
+    clearOpts();
+    const top=q.opts[order[0]].text;
+    answers[`P${currentQ+1}`]=order.map((idx,pos)=>`${pos+1}°${q.opts[idx].text.substring(0,20)}`).join('|');
+    await addBubble(`1° ${top.substring(0,45)}${top.length>45?'…':''}`, 'user');
+    order.forEach((itemIdx,pos)=>{
+      const pts=q.rankScores[pos]??0;
+      Object.keys(q.opts[itemIdx].keys).forEach(k=>{ scores[k]+=pts; });
+    });
+    onDone();
+  });
+  optPanel.appendChild(confirmBtn);
+}
+
+async function nextQuestion(){
+  currentQ++;
+  if(currentQ >= QUESTIONS.length){ 
+    progEl.style.width='100%';
+    showResult(); 
+    return; 
+  }
+  updateProgress();
+  const q=QUESTIONS[currentQ];
+  await showTyping(650);
+  await addBubble(q.q,'bot'); scrollBottom();
+  if(q.type==='single') showSingle(q,()=>setTimeout(nextQuestion,350));
+  else                   showRank(q,  ()=>setTimeout(nextQuestion,350));
+}
+
+function getTopDims(n){ return Object.entries(scores).sort((a,b)=>b[1]-a[1]).slice(0,n); }
+
+function scoreCareer(carrera){
+  const topDims=getTopDims(3).map(d=>d[0]);
+  let total=0;
+  topDims.forEach((dim,i)=>{
+    const w=[3,2,1][i];
+    total+=(carrera.dims[dim]||0)*w;
+  });
+  return total;
+}
+
+function getTopCareers(n){
+  return CARRERAS.map(c=>({...c, score:scoreCareer(c)}))
+    .sort((a,b)=>b.score-a.score).slice(0,n);
+}
+
+function getMaxScore(){
+  const maxVal=Math.max(...Object.values(scores));
+  return maxVal||1;
+}
+
+// ENVÍO AL SCRIPT DE NUEVO INGRESO
+async function sendToSheets(top1, topCareers){
+  if(!SHEETS_URL) return;
+  const endTime = new Date();
+  const durationSec = Math.round((endTime - startTime) / 1000);
+  
+  const params = new URLSearchParams();
+  params.append('timestamp', new Date().toISOString());
+  params.append('duracion_segundos', durationSec);
+  params.append('carrera_actual', carreraActualITCJ || 'No especificada');
+  params.append('perfil_principal', top1.label);
+  params.append('carrera_top1', topCareers[0]?.name || '');
+  params.append('carrera_top2', topCareers[1]?.name || '');
+  params.append('carrera_top3', topCareers[2]?.name || '');
+  params.append('coincide_carrera_actual', eval1);
+  params.append('alineacion_talentos', eval2);
+  params.append('utilidad_pre_inscripcion', eval3);
+  params.append('deseo_tutoria', eval4);
+  params.append('contacto_seguimiento', contactoUsuario || 'No proporcionado');
+  params.append('scores', JSON.stringify(scores));
+  params.append('respuestas', JSON.stringify(answers));
+
+  try {
+    await fetch(SHEETS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString()
+    });
+  } catch(e) {
+    console.error("Error enviando datos:", e);
+  }
+}
+
+async function showResult(){
+  clearOpts(); 
+  await showTyping(1000);
+  await addBubble('¡Listo! He analizado tus respuestas. Aquí están tus resultados:','bot');
+  await new Promise(r=>setTimeout(r,400));
+
+  const topDims=getTopDims(3);
+  const topCareers=getTopCareers(5);
+  const maxScore=getMaxScore();
+  const top1=DIMS[topDims[0][0]];
+
+  const card=document.createElement('div');
+  card.className='result-card';
+
+  const dimsHTML=topDims.map(([k,v])=>{
+    const d=DIMS[k];
+    const pct=Math.round((v/maxScore)*100);
+    return `<div class="dim-item">
+      <div class="dim-label"><span>${d.emoji} ${d.label}</span><span>${pct}%</span></div>
+      <div class="dim-track"><div class="dim-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+
+  const labels=['Muy alto','Alto','Bueno','Compatible','Compatible'];
+  const careersHTML=topCareers.map((c,i)=>{
+    return `<div class="career-item">
+      <span class="career-emoji">${c.emoji}</span>
+      <span class="career-name">${c.name}</span>
+      <span class="career-match">${labels[i]}</span>
+    </div>`;
+  }).join('');
+
+  card.innerHTML = `
+    <div class="result-label">TU PERFIL PRINCIPAL</div>
+    <div class="result-title">${top1.emoji} ${top1.label}</div>
+    <div class="result-sub">${top1.desc}</div>
+    
+    <div class="dim-bar">
+      <div class="dim-title">TUS DIMENSIONES DESTACADAS</div>
+      ${dimsHTML}
+    </div>
+
+    <div class="careers-section">
+      <div class="careers-title">CARRERAS SUGERIDAS EN EL ITCJ</div>
+      ${careersHTML}
+      <a href="https://cdjuarez.tecnm.mx/programas_academicos/" target="_blank" class="link-carreras-btn">
+        🌐 Ver planes de estudio completos del ITCJ
+      </a>
+    </div>
+
+    <div class="sports-section">
+      <div class="sports-title">⚽ ACTIVIDADES EXTRAESCOLARES</div>
+      <div class="sports-list">${SPORTS_MSG}</div>
+    </div>
+
+    <div class="disclaimer">
+      💡 <strong>Nota:</strong> Este test es una orientación inicial basada en tus preferencias actuales y no reemplaza el diagnóstico de un profesional vocacional.
+    </div>
+  `;
+
+  chatEl.appendChild(card);
+  scrollBottom();
+
+  setTimeout(() => askEval1(top1, topCareers), 1200);
+}
+
+// 4 PREGUNTAS DE EVALUACIÓN DE NUEVO INGRESO
+async function askEval1(top1, topCareers){
+  await showTyping(700);
+  await addBubble('De las carreras recomendadas por VocaBot, ¿aparece la carrera que estás cursando actualmente en el ITCJ?', 'bot');
+  clearOpts();
+  const options = [
+    'Sí, es mi primera opción recomendada',
+    'Sí, aparece entre las opciones secundarias',
+    'No, me recomendó áreas completamente distintas'
+  ];
+  options.forEach(optText => {
+    const btn = document.createElement('button');
+    btn.className = 'opt';
+    btn.textContent = optText;
+    btn.addEventListener('click', async () => {
+      clearOpts();
+      eval1 = optText;
+      await addBubble(optText, 'user');
+      setTimeout(() => askEval2(top1, topCareers), 350);
+    });
+    optPanel.appendChild(btn);
+  });
+}
+
+async function askEval2(top1, topCareers){
+  await showTyping(700);
+  await addBubble('Tras ver el desglose de tus habilidades y perfiles, ¿sientes que tu carrera actual realmente se alinea con tus talentos?', 'bot');
+  clearOpts();
+  const options = [
+    'Totalmente, reafirmó que estoy en el lugar correcto',
+    'Tengo dudas, me dio curiosidad explorar otra área',
+    'Siento que mi perfil encaja mejor en otra carrera'
+  ];
+  options.forEach(optText => {
+    const btn = document.createElement('button');
+    btn.className = 'opt';
+    btn.textContent = optText;
+    btn.addEventListener('click', async () => {
+      clearOpts();
+      eval2 = optText;
+      await addBubble(optText, 'user');
+      setTimeout(() => askEval3(top1, topCareers), 350);
+    });
+    optPanel.appendChild(btn);
+  });
+}
+
+async function askEval3(top1, topCareers){
+  await showTyping(700);
+  await addBubble('¿Crees que este diagnóstico te habría ayudado a evitar incertidumbres si lo hubieras realizado antes de inscribirte al ITCJ?', 'bot');
+  clearOpts();
+  const options = [
+    '😄 Muchísimo, habría elegido con total certeza',
+    '🙂 Bastante',
+    '😐 Poco / Indiferente'
+  ];
+  options.forEach(optText => {
+    const btn = document.createElement('button');
+    btn.className = 'opt';
+    btn.textContent = optText;
+    btn.addEventListener('click', async () => {
+      clearOpts();
+      eval3 = optText;
+      await addBubble(optText, 'user');
+      setTimeout(() => askEval4(top1, topCareers), 350);
+    });
+    optPanel.appendChild(btn);
+  });
+}
+
+async function askEval4(top1, topCareers){
+  await showTyping(700);
+  await addBubble('¿Consideras que el ITCJ debería implementar permanentemente esta herramienta interactiva para acompañar a los estudiantes de nuevo ingreso?', 'bot');
+  clearOpts();
+  const options = [
+    'Sí, sería de gran ayuda para todos los estudiantes',
+    'Tal vez, como un apoyo opcional',
+    'No lo considero necesario'
+  ];
+  options.forEach(optText => {
+    const btn = document.createElement('button');
+    btn.className = 'opt';
+    btn.textContent = optText;
+    btn.addEventListener('click', async () => {
+      clearOpts();
+      eval4 = optText;
+      await addBubble(optText, 'user');
+      setTimeout(() => askSeguimiento(top1, topCareers), 350);
+    });
+    optPanel.appendChild(btn);
+  });
+}
+
+async function askSeguimiento(top1, topCareers){
+  await showTyping(700);
+  await addBubble('📋 ¿Nos autorizas un medio de contacto (correo o teléfono) para futuras investigaciones relacionadas con el acompañamiento estudiantil? (Opcional):', 'bot');
+  clearOpts();
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'Ej: 6561234567 o correo@ejemplo.com';
+  input.className = 'input-box';
+
+  const sendBtn = document.createElement('button');
+  sendBtn.className = 'confirm-btn';
+  sendBtn.textContent = 'Sí, autorizo 📩';
+  sendBtn.onclick = async () => {
+    const valor = input.value.trim();
+    if (valor === '') {
+      input.style.borderColor = '#FF5555';
+      input.placeholder = 'Ingresa un dato o selecciona "No por ahora"';
+      return;
+    }
+    contactoUsuario = valor;
+    clearOpts();
+    await addBubble(contactoUsuario, 'user');
+    finishSurvey(top1, topCareers);
+  };
+
+  const skipBtn = document.createElement('button');
+  skipBtn.className = 'opt';
+  skipBtn.style.textAlign = 'center';
+  skipBtn.style.marginTop = '4px';
+  skipBtn.textContent = 'No por ahora ⏩';
+  skipBtn.onclick = async () => {
+    contactoUsuario = 'No proporcionado';
+    clearOpts();
+    await addBubble('No por ahora', 'user');
+    finishSurvey(top1, topCareers);
+  };
+
+  optPanel.appendChild(input);
+  optPanel.appendChild(sendBtn);
+  optPanel.appendChild(skipBtn);
+}
+
+async function finishSurvey(top1, topCareers){
+  sendToSheets(top1, topCareers);
+
+  await showTyping(600);
+  await addBubble('¡Muchas gracias por participar! Tus respuestas de nuevo ingreso han sido guardadas con éxito. Te deseamos mucho éxito en tu camino profesional dentro del ITCJ. 🎓✨🚀', 'bot');
+
+  const restartBtn = document.createElement('button');
+  restartBtn.className = 'restart-btn';
+  restartBtn.textContent = 'Reiniciar test 🔄';
+  restartBtn.onclick = () => location.reload();
+  optPanel.appendChild(restartBtn);
+}
+</script>
+</body>
+</html>
